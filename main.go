@@ -8,6 +8,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"image/png"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -87,12 +88,12 @@ func main4() {
 
 func main5() {
 
-	if err := httpLogin("18676681017", "123456"); err != nil {
+	if err := postmanLogin("18676681017", "123456"); err != nil {
 		return
 	}
 
 	for {
-		if js, err := httpBookBox("518067A362", "pkg1234568", "small", "13760268661", "18676681017"); err == nil {
+		if js, err := postmanBookBox("518067A362", "pkg1234568", "small", "13760268661", "18676681017"); err == nil {
 
 			code := js.Get("code").MustInt()
 			if code == 0 {
@@ -147,7 +148,7 @@ func main6() {
 	fmt.Println(pckID)
 }
 
-func main() {
+func main7() {
 
 	cabMng := GetCabMng()
 	cabMng.portName = "/dev/ttyUSB0"
@@ -158,6 +159,9 @@ func main() {
 
 	cabMng.OpenPort()
 
+	scan := GetScanner()
+	scan.OpenPort("/dev/ttyUSB1")
+
 	client := NewClientSSH()
 
 	if err := client.Open("root", "root"); err != nil {
@@ -165,7 +169,7 @@ func main() {
 	}
 
 	//step 1 order a box
-	if err := httpLogin("18676681017", "123456"); err != nil {
+	if err := postmanLogin("18676681017", "123456"); err != nil {
 		return
 	}
 
@@ -173,8 +177,8 @@ func main() {
 
 		//step 1 order a box
 		timeNow := time.Now()
-		orderPckID := fmt.Sprintf("%04d%02d%02d%02d%02d%02d", timeNow.Year(), timeNow.Month(), timeNow.Day(), timeNow.Hour(), timeNow.Minute(), timeNow.Second())
-		if js, err := httpBookBox("518067A362", orderPckID, "small", "13760268661", "18676681017"); err == nil {
+		orderPckID := fmt.Sprintf("EZ%04d%02d%02d%02d%02d%02d", timeNow.Year(), timeNow.Month(), timeNow.Day(), timeNow.Hour(), timeNow.Minute(), timeNow.Second())
+		if js, err := postmanBookBox("518067A362", orderPckID, "small", "13760268661", "18676681017"); err == nil {
 
 			code := js.Get("code").MustInt()
 			if code == 0 {
@@ -184,6 +188,7 @@ func main() {
 
 				//parcelID := js.Get("data").Get("parcelId").MustString()
 
+				takenCode := js.Get("data").Get("takeCode").MustString()
 				client.FileTransfer("/home/root/terminal_forbussiness.db")
 
 				checkOrder(js, orderPckID)
@@ -211,16 +216,18 @@ func main() {
 
 				//输入预约单号
 
-				for i := 0; i < len(orderPckID); i++ {
+				scan.SendCode(orderPckID)
+				// for i := 0; i < len(orderPckID); i++ {
 
-					client.KeyPress(string([]byte{orderPckID[i]}))
-				}
-				time.Sleep(2 * time.Second)
-				client.KeyPress("enter")
+				// 	client.KeyPress(orderPckID[i : i+1])
+				// }
+
+				//client.KeyPress("enter")
+				time.Sleep(3 * time.Second)
 
 				//open box OK
 
-				time.Sleep(5 * time.Second)
+				//time.Sleep(3 * time.Second)
 
 				client.Run("fbgrab /tmp/DeliveryOpenOK.png")
 				client.FileTransfer("/tmp/DeliveryOpenOK.png")
@@ -229,13 +236,19 @@ func main() {
 
 				client.KeyPress("enter")
 
-				// js, err := httpCancalBook("518067A362", parcelID)
-				// if err != nil {
-				// 	continue
-				// }
-				// time.Sleep(5 * time.Second)
-				// client.FileTransfer("/home/root/terminal_forbussiness.db")
-				// checkOrderCancel(js)
+				time.Sleep(2 * time.Second)
+
+				client.KeyPress("1")
+
+				//scanner.SendCode(takenCode)
+
+				for i := 0; i < len(takenCode); i++ {
+					client.KeyPress(takenCode[i : i+1])
+				}
+
+				time.Sleep(3 * time.Second)
+
+				client.KeyPress("enter")
 
 			} else {
 
@@ -248,10 +261,9 @@ func main() {
 	}
 }
 
-func mainxx() {
+func main() {
 
 	cabMng := GetCabMng()
-
 	cabMng.portName = "/dev/ttyUSB0"
 
 	cabMng.AddCabnit(0, 32)
@@ -260,18 +272,71 @@ func mainxx() {
 
 	cabMng.OpenPort()
 
-	cabMng.SetAllBox(1)
+	scan := GetScanner()
+	scan.OpenPort("/dev/ttyUSB1")
 
-	ticker := time.NewTicker(time.Second * 5)
+	adminLogin("13410324304", "123456")
 
-	state := 1
+	client := NewClientSSH()
+
+	if err := client.Open("root", "root"); err != nil {
+		return
+	}
+
 	for {
 
-		<-ticker.C
+		client.KeyPress("esc")
+		client.KeyPress("esc")
+		client.KeyPress("esc")
+		client.KeyPress("esc")
+		client.KeyPress("1")
+		//
+		client.KeyPress("1")
+		client.KeyPress("1")
+		client.KeyPress("1")
+		client.KeyPress("1")
+		client.KeyPress("1")
+		client.KeyPress("1")
+		client.KeyPress("shift")
 
-		cabMng.SetAllBox(state)
-		state = 1 - state
+		time.Sleep(time.Second)
 
+		client.Run("fbgrab /tmp/AdminLogin.png")
+
+		client.FileTransfer("/tmp/AdminLogin.png")
+
+		fin, _ := os.Open("/tmp/AdminLogin.png")
+
+		src, _ := png.Decode(fin)
+
+		fin.Close()
+
+		img := barcode.NewImage(src)
+		scanner := barcode.NewScanner().SetEnabledAll(true)
+
+		symbols, _ := scanner.ScanImage(img)
+
+		var qrCode string
+		for _, s := range symbols {
+
+			qrCode = s.Data
+			fmt.Println(qrCode)
+			break
+			//fmt.Println(s.Type.Name(), s.Data, s.Quality, s.Boundary)
+
+		}
+
+		if qrCode != "" {
+
+			index := strings.Index(qrCode, "?code=")
+
+			if js, err := adminTerminalScanIn(qrCode[index+6:]); err == nil {
+
+				fmt.Print(js)
+			}
+		}
+
+		time.Sleep(time.Second * 5)
 	}
 
 }

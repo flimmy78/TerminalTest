@@ -18,10 +18,11 @@ const (
 )
 
 var (
-	appToken string
+	appToken   string
+	adminToken string
 )
 
-func httpLogin(courierTel, passwd string) error {
+func postmanLogin(courierTel, passwd string) error {
 
 	client := &http.Client{}
 	reqest, _ := http.NewRequest("GET", authURL, nil)
@@ -106,7 +107,7 @@ func postJSON(url, jsTxt string) (*simplejson.Json, error) {
 
 }
 
-func httpBookBox(sn, pkgID, boxType, takenMobile, postmanMobile string) (*simplejson.Json, error) {
+func postmanBookBox(sn, pkgID, boxType, takenMobile, postmanMobile string) (*simplejson.Json, error) {
 
 	js := simplejson.New()
 	js.Set("uid", "1234455")
@@ -162,6 +163,54 @@ func httpCancalBook(sn, parcelID string) (*simplejson.Json, error) {
 		return jsRes, err
 	}
 
+	return nil, errors.New("")
+
+}
+
+//&{map[code:0 msg: data:map[token:jhfffgmnqrojcsminccklylwppavtdsnfolqehbf alias:EZOPT13410324304
+// name:付云球 permList:[/ticket/additional /ticket/board /ad/task /term/gets /map /msg /personal /sys/loginbyscan /term/monitor /term/box /oplog/gets /term/devices /parcel/gets /monitor /truble /ticket /network /ticket/close /ticket/inspection /ticket/report]
+//role_name:运维系统基础运维 role_code:ticket_operator uid:887202] time:2017-09-12 14:42:44]}
+func adminLogin(mobile, passwd string) (*simplejson.Json, error) {
+
+	loginURL := "http://182.254.229.224/optapi/user/login"
+	jsData := simplejson.New()
+	jsData.Set("mobile", mobile)                 //用户账号对应的手机号
+	jsData.Set("password", md5Txt(passwd))       //密码(转小写后)的md5值
+	jsData.Set("push_id", "1a0018970aa096ed978") //手机/设备向推送平台注册的唯一标识
+	jsData.Set("device", "Vivo")                 //设备型号
+	jsData.Set("device_sys", "Andriod5.0")       //设备系统版本
+
+	js := simplejson.New()
+	js.Set("data", jsData)
+	if jsTxt, err := js.MarshalJSON(); err == nil {
+		jsRes, err := postJSON(loginURL, string(jsTxt))
+
+		code := jsRes.Get("code").MustInt()
+		if code == 0 {
+			adminToken = jsRes.Get("data").Get("token").MustString()
+		}
+
+		return jsRes, err
+	}
+	return nil, errors.New("")
+}
+
+func adminTerminalScanIn(code string) (*simplejson.Json, error) {
+
+	scanInURL := "http://182.254.229.224/optapi/sys/loginbyscan"
+	jsData := simplejson.New()
+	jsData.Set("code", code)       //二维码
+	jsData.Set("lat", "130.12345") //纬度
+	jsData.Set("lng", "22.12345")  //经度
+
+	js := simplejson.New()
+	js.Set("token", adminToken)
+	js.Set("data", jsData)
+	if jsTxt, err := js.MarshalJSON(); err == nil {
+		jsRes, err := postJSON(scanInURL, string(jsTxt))
+
+		return jsRes, err
+	}
 	return nil, errors.New("")
 
 }

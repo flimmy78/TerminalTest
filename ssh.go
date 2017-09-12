@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+var (
+	keymap = map[string]string{"0": "11", "1": "2", "2": "3", "3": "4", "4": "5", "5": "6", "6": "7", "7": "8", "8": "9", "9": "10",
+		"A": "30", "B": "48", "C": "46", "D": "32", "E": "18", "F": "33", "G": "34", "H": "35", "I": "23", "J": "36",
+		"K": "37", "L": "38", "M": "50", "N": "49", "O": "24", "P": "25", "Q": "16", "R": "19", "S": "31", "T": "20",
+		"U": "22", "V": "47", "W": "17", "X": "45", "Y": "21", "Z": "44",
+		"up": "104", "down": "109", "esc": "1", "enter": "28", "shift": "42",
+	}
+)
+
 // ClientSSH clientssh struct
 type ClientSSH struct {
 	client *ssh.Client
@@ -85,53 +94,10 @@ func (clt *ClientSSH) Run(cmd string) (string, error) {
 //KeyPress simulate keyboard press
 func (clt *ClientSSH) KeyPress(key string) {
 
-	var code string
-	switch key {
-	case "0":
-		code = "11"
-		break
-	case "1":
-		code = "2"
-		break
-	case "2":
-		code = "3"
-		break
-	case "3":
-		code = "4"
-		break
-	case "4":
-		code = "5"
-		break
-	case "5":
-		code = "6"
-		break
-	case "6":
-		code = "7"
-		break
-	case "7":
-		code = "8"
-		break
-	case "8":
-		code = "9"
-		break
-	case "9":
-		code = "10"
-		break
-	case "up":
-		code = "104"
-		break
-	case "down":
-		code = "109"
-		break
-	case "enter":
-		code = "28"
-		break
-	case "esc":
-		code = "1"
-		break
+	if code, ok := keymap[key]; ok {
+		clt.Run("simulate_key /dev/input/event1 " + code)
 	}
 
-	clt.Run("simulate_key /dev/input/event1 " + code)
 }
 
 //FileTransfer transfer file
